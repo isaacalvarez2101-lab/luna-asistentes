@@ -1,0 +1,10 @@
+{
+  "name": "Luna — Asistente personal",
+  "short_name": "Luna",
+  "description": "Prototipo de asistente personal para Android",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#100f20",
+  "theme_color": "#17142f",
+  "lang": "es"
+}
