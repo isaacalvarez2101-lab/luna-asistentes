@@ -19,17 +19,44 @@ small{color:var(--muted)}footer{text-align:center;color:var(--muted);font-size:.
 </style></head>
 <body><main>
 <header class="hero"><div class="moon">🌙</div><h1>Luna</h1><p>Tu asistente personal</p><div class="status" id="status">Lista para ayudarte</div></header>
-<section class="panel"><h2>Habla con Luna</h2><div class="chat" id="chat" aria-live="polite"><div class="msg luna">¡Hola! Soy Luna. Puedes escribirme o probar el botón de voz. Esta primera versión es una demo y todavía no está conectada a una IA en línea.</div></div>
-<div class="controls"><input id="message" placeholder="Escribe aquí..." autocomplete="off"><button id="send">Enviar</button><button id="voice" class="secondary">🎙️ Hablar</button></div><p><small>La voz depende de las funciones que admita tu navegador.</small></p></section>
+<section class="panel"><h2>Habla con Luna</h2><div class="chat" id="chat" aria-live="polite"><div class="msg luna">¡Hola! Soy Luna. Estoy preparada para conectarme a la IA cuando terminemos la configuración segura del servidor.</div></div>
+<div class="controls"><input id="message" placeholder="Escribe aquí..." autocomplete="off"><button id="send">Enviar</button><button id="voice" class="secondary">🎙️ Hablar</button></div><p><small>La voz depende de las funciones que admita tu navegador. La conexión con IA se activa al configurar el servidor.</small></p></section>
 <section class="panel"><h2>Mis tareas</h2><div class="tasks"><input id="taskInput" placeholder="Añadir una tarea"><button id="addTask">Añadir</button></div><div id="tasks"></div></section>
 <footer>Luna · Prototipo inicial para Android</footer>
 </main>
 <script>
 const $=id=>document.getElementById(id), chat=$('chat');
 function say(text,who='luna'){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
-function reply(s){const t=s.toLowerCase();if(/hola|buenos días|buenas tardes|buenas noches/.test(t))return'¡Hola! 😊 ¿Qué te gustaría hacer hoy?';if(/tu nombre|quién eres/.test(t))return'Soy Luna, tu asistente personal.';if(/hora/.test(t))return'No tengo acceso fiable a la hora exacta en esta demo. Mira el reloj de tu teléfono.';if(/ayuda|qué puedes hacer/.test(t))return'Por ahora puedo conversar con respuestas sencillas, leer respuestas en voz alta y guardar una lista de tareas en este teléfono. La IA conectada llegará en una siguiente versión.';if(/gracias/.test(t))return'¡Con gusto! 🌙';return'Te leo. Esta versión todavía usa respuestas básicas, no una IA conectada. En la siguiente etapa podemos conectar un servicio de inteligencia artificial.'}
-function speak(s){if(!('speechSynthesis'in window)){ $('status').textContent='Tu navegador no admite voz de salida';return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(s);u.lang='es-ES';speechSynthesis.speak(u)}
-function send(){const v=$('message').value.trim();if(!v)return;$('message').value='';say(v,'you');const a=reply(v);say(a);speak(a)}
+// Después de publicar el Worker de Cloudflare, pega aquí su URL pública (termina en .workers.dev).
+const LUNA_API_URL = "CONFIGURA_AQUI_LA_URL_DE_CLOUDFLARE";
+const history = [];
+async function send(){
+  const v=$('message').value.trim();
+  if(!v)return;
+  $('message').value='';
+  say(v,'you');
+  if(LUNA_API_URL === "CONFIGURA_AQUI_LA_URL_DE_CLOUDFLARE"){
+    const a="La conexión segura con la IA está casi lista. Falta publicar el servidor de Cloudflare y configurar su URL.";
+    say(a); speak(a); return;
+  }
+  $('send').disabled=true; $('status').textContent='Luna está pensando…';
+  try {
+    const res=await fetch(LUNA_API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:v,history})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||'No se pudo conectar con la IA.');
+    const a=String(data.reply||'No recibí una respuesta.').slice(0,8000);
+    history.push({role:'user',text:v},{role:'model',text:a});
+    if(history.length>12)history.splice(0,history.length-12);
+    say(a); speak(a); $('status').textContent='Conectada';
+  } catch(e) {
+    const a='No pude conectar con el servidor de Luna. Comprueba internet y la configuración de Cloudflare. '+(e.message||'');
+    say(a); $('status').textContent='Problema de conexión';
+  } finally {$('send').disabled=false;}
+}
 $('send').onclick=send;$('message').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
 $('voice').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('status').textContent='Voz no compatible en este navegador. Prueba Chrome.';return}const r=new SR();r.lang='es-ES';r.onstart=()=>$('status').textContent='Escuchando…';r.onresult=e=>{$('message').value=e.results[0][0].transcript;send()};r.onerror=()=> $('status').textContent='No pude escuchar. Revisa el permiso del micrófono.';r.onend=()=> $('status').textContent='Lista para ayudarte';r.start()};
 let tasks=JSON.parse(localStorage.getItem('lunaTasks')||'[]');
