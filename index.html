@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#17142f"><meta name="description" content="Luna, tu asistente personal para Android">
+<link rel="manifest" href="manifest.json"><title>Luna — Asistente personal</title>
+<style>
+:root{color-scheme:dark;--bg:#100f20;--panel:#1d1b35;--accent:#a99bff;--text:#f6f4ff;--muted:#b9b4d3}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#30265c 0,#100f20 55%);font-family:system-ui,-apple-system,sans-serif;color:var(--text);min-height:100vh;padding:20px}
+main{max-width:680px;margin:auto}.hero{text-align:center;padding:28px 12px 22px}.moon{font-size:48px}.hero h1{margin:4px 0;font-size:2.3rem}.hero p{color:var(--muted);margin:6px}
+.panel{background:#1d1b35eF;border:1px solid #ffffff1c;border-radius:22px;padding:18px;margin:14px 0;box-shadow:0 12px 35px #0002}
+.status{font-size:.85rem;color:var(--muted)}.chat{height:260px;overflow:auto;display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.msg{padding:11px 14px;border-radius:16px;max-width:90%;white-space:pre-wrap;line-height:1.45}.luna{background:#302a50;align-self:flex-start}.you{background:#6152ad;align-self:flex-end}
+.controls{display:flex;gap:8px}.controls input{flex:1;min-width:0}.controls input,button{font:inherit;border-radius:13px;border:1px solid #ffffff24;padding:12px;background:#141329;color:var(--text)}
+button{background:#7765d7;border:0;font-weight:650;cursor:pointer}button.secondary{background:#302a50}button:disabled{opacity:.55}
+input::placeholder{color:#aaa4c6}.tasks{display:flex;gap:8px;margin:8px 0}.tasks input{flex:1;min-width:0}.task{padding:9px 0;border-bottom:1px solid #ffffff18;display:flex;gap:10px;align-items:center}.task span{flex:1}.task button{padding:6px 10px;background:#473d69}
+small{color:var(--muted)}footer{text-align:center;color:var(--muted);font-size:.8rem;padding:18px}
+@media(max-width:420px){body{padding:12px}.controls{flex-wrap:wrap}.controls input{flex-basis:100%}.controls button{flex:1}}
+</style></head>
+<body><main>
+<header class="hero"><div class="moon">🌙</div><h1>Luna</h1><p>Tu asistente personal</p><div class="status" id="status">Lista para ayudarte</div></header>
+<section class="panel"><h2>Habla con Luna</h2><div class="chat" id="chat" aria-live="polite"><div class="msg luna">¡Hola! Soy Luna. Puedes escribirme o probar el botón de voz. Esta primera versión es una demo y todavía no está conectada a una IA en línea.</div></div>
+<div class="controls"><input id="message" placeholder="Escribe aquí..." autocomplete="off"><button id="send">Enviar</button><button id="voice" class="secondary">🎙️ Hablar</button></div><p><small>La voz depende de las funciones que admita tu navegador.</small></p></section>
+<section class="panel"><h2>Mis tareas</h2><div class="tasks"><input id="taskInput" placeholder="Añadir una tarea"><button id="addTask">Añadir</button></div><div id="tasks"></div></section>
+<footer>Luna · Prototipo inicial para Android</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id), chat=$('chat');
+function say(text,who='luna'){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function reply(s){const t=s.toLowerCase();if(/hola|buenos días|buenas tardes|buenas noches/.test(t))return'¡Hola! 😊 ¿Qué te gustaría hacer hoy?';if(/tu nombre|quién eres/.test(t))return'Soy Luna, tu asistente personal.';if(/hora/.test(t))return'No tengo acceso fiable a la hora exacta en esta demo. Mira el reloj de tu teléfono.';if(/ayuda|qué puedes hacer/.test(t))return'Por ahora puedo conversar con respuestas sencillas, leer respuestas en voz alta y guardar una lista de tareas en este teléfono. La IA conectada llegará en una siguiente versión.';if(/gracias/.test(t))return'¡Con gusto! 🌙';return'Te leo. Esta versión todavía usa respuestas básicas, no una IA conectada. En la siguiente etapa podemos conectar un servicio de inteligencia artificial.'}
+function speak(s){if(!('speechSynthesis'in window)){ $('status').textContent='Tu navegador no admite voz de salida';return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(s);u.lang='es-ES';speechSynthesis.speak(u)}
+function send(){const v=$('message').value.trim();if(!v)return;$('message').value='';say(v,'you');const a=reply(v);say(a);speak(a)}
+$('send').onclick=send;$('message').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+$('voice').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('status').textContent='Voz no compatible en este navegador. Prueba Chrome.';return}const r=new SR();r.lang='es-ES';r.onstart=()=>$('status').textContent='Escuchando…';r.onresult=e=>{$('message').value=e.results[0][0].transcript;send()};r.onerror=()=> $('status').textContent='No pude escuchar. Revisa el permiso del micrófono.';r.onend=()=> $('status').textContent='Lista para ayudarte';r.start()};
+let tasks=JSON.parse(localStorage.getItem('lunaTasks')||'[]');
+function renderTasks(){const el=$('tasks');el.replaceChildren();tasks.forEach((t,i)=>{const row=document.createElement('div');row.className='task';const c=document.createElement('input');c.type='checkbox';c.checked=t.done;c.onchange=()=>{tasks[i].done=c.checked;save()};const s=document.createElement('span');s.textContent=t.text;if(t.done)s.style.textDecoration='line-through';const b=document.createElement('button');b.textContent='Borrar';b.onclick=()=>{tasks.splice(i,1);save()};row.append(c,s,b);el.appendChild(row)});if(!tasks.length)el.textContent='Todavía no tienes tareas.'}
+function save(){localStorage.setItem('lunaTasks',JSON.stringify(tasks));renderTasks()}
+function addTask(){const v=$('taskInput').value.trim();if(!v)return;tasks.push({text:v,done:false});$('taskInput').value='';save()}
+$('addTask').onclick=addTask;$('taskInput').addEventListener('keydown',e=>{if(e.key==='Enter')addTask()});renderTasks();
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script></body></html>
